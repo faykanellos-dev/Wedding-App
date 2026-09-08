@@ -1,0 +1,40 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+const TABS = [
+  { href: "/overview", label: "Overview", icon: "🏠" },
+  { href: "/checklist", label: "Checklist", icon: "✅" },
+  { href: "/budget", label: "Budget", icon: "💰" },
+  { href: "/guests", label: "Guests", icon: "👥" },
+  { href: "/wishlist", label: "Wishlist", icon: "💌" },
+] as const;
+
+export default function BottomNav() {
+  const pathname = usePathname();
+
+  return (
+    <nav className="sticky bottom-0 inset-x-0 bg-background border-t border-border">
+      <div className="max-w-md mx-auto grid grid-cols-5">
+        {TABS.map((tab) => {
+          const active = pathname?.startsWith(tab.href);
+          return (
+            <Link
+              key={tab.href}
+              href={tab.href}
+              className={`flex flex-col items-center justify-center gap-1 py-2.5 text-[11px] ${
+                active ? "text-foreground font-medium" : "text-muted"
+              }`}
+            >
+              <span className="text-lg leading-none" aria-hidden>
+                {tab.icon}
+              </span>
+              {tab.label}
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
