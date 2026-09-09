@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAppData, guestStats } from "@/lib/store";
 import type { Guest } from "@/lib/types";
+import { IconUsers } from "@/lib/icons";
 
 export default function GuestsPage() {
   const { data, addGuest, addTable } = useAppData();
@@ -43,7 +44,7 @@ export default function GuestsPage() {
 
           {data.guests.length === 0 ? (
             <div className="bg-surface border border-border rounded-xl p-6 text-center">
-              <p className="text-2xl mb-2">👥</p>
+              <IconUsers className="w-7 h-7 mx-auto mb-2 text-muted" />
               <p className="text-sm font-medium mb-1">No guests added yet</p>
               <div className="flex flex-col gap-2 mt-3">
                 <button
@@ -159,7 +160,7 @@ function SeatingView({
       <div className="border border-dashed border-border rounded-xl p-3 mb-4">
         <p className="text-xs font-medium text-muted mb-2">Unassigned</p>
         {unassigned.length === 0 ? (
-          <p className="text-xs text-muted">Everyone&apos;s seated 🎉</p>
+          <p className="text-xs text-muted">Everyone&apos;s seated</p>
         ) : (
           <div className="flex flex-wrap gap-1.5">
             {unassigned.map((g) => (

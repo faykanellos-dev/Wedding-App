@@ -23,13 +23,16 @@ const DEFAULT_DATA: AppData = {
   budgetLines: [],
   guests: [],
   tables: [],
+  // `icon` is kept only for the data shape (see WishlistCategory) — the UI
+  // resolves the actual icon from CATEGORY_ICONS in app/(tabs)/wishlist/page.tsx
+  // by `id`, so these are just plain labels, not rendered.
   wishlistCategories: [
-    { id: "venues", name: "Venues", icon: "🏛️", locked: false, vendorIds: [] },
-    { id: "flowers", name: "Flowers", icon: "💐", locked: false, vendorIds: [] },
-    { id: "photo-video", name: "Photo & video", icon: "📷", locked: false, vendorIds: [] },
-    { id: "catering", name: "Catering", icon: "🍽️", locked: false, vendorIds: [] },
-    { id: "music", name: "Music", icon: "🎵", locked: false, vendorIds: [] },
-    { id: "other", name: "Other", icon: "✨", locked: true, vendorIds: [] },
+    { id: "venues", name: "Venues", icon: "venues", locked: false, vendorIds: [] },
+    { id: "flowers", name: "Flowers", icon: "flowers", locked: false, vendorIds: [] },
+    { id: "photo-video", name: "Photo & video", icon: "photo-video", locked: false, vendorIds: [] },
+    { id: "catering", name: "Catering", icon: "catering", locked: false, vendorIds: [] },
+    { id: "music", name: "Music", icon: "music", locked: false, vendorIds: [] },
+    { id: "other", name: "Other", icon: "other", locked: true, vendorIds: [] },
   ],
   vendors: [],
   timelineEvents: [],

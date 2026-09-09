@@ -2,14 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { IconHome, IconCheckCircle, IconWallet, IconUsers, IconHeart, IconClock } from "@/lib/icons";
 
 const TABS = [
-  { href: "/overview", label: "Overview", icon: "🏠" },
-  { href: "/checklist", label: "Checklist", icon: "✅" },
-  { href: "/budget", label: "Budget", icon: "💰" },
-  { href: "/guests", label: "Guests", icon: "👥" },
-  { href: "/wishlist", label: "Wishlist", icon: "💌" },
-  { href: "/timeline", label: "Timeline", icon: "🕐" },
+  { href: "/overview", label: "Overview", Icon: IconHome },
+  { href: "/checklist", label: "Checklist", Icon: IconCheckCircle },
+  { href: "/budget", label: "Budget", Icon: IconWallet },
+  { href: "/guests", label: "Guests", Icon: IconUsers },
+  { href: "/wishlist", label: "Wishlist", Icon: IconHeart },
+  { href: "/timeline", label: "Timeline", Icon: IconClock },
 ] as const;
 
 export default function BottomNav() {
@@ -28,9 +29,7 @@ export default function BottomNav() {
                 active ? "text-foreground font-medium" : "text-muted"
               }`}
             >
-              <span className="text-base leading-none" aria-hidden>
-                {tab.icon}
-              </span>
+              <tab.Icon className="w-5 h-5" />
               {tab.label}
             </Link>
           );

@@ -1,7 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useState, ComponentType } from "react";
 import { useAppData } from "@/lib/store";
+import {
+  IconLock,
+  IconSparkle,
+  IconFlag,
+  IconFolder,
+  IconChat,
+  IconBuilding,
+  IconFlower,
+  IconCamera,
+  IconUtensils,
+  IconMusic,
+} from "@/lib/icons";
+
+const CATEGORY_ICONS: Record<string, ComponentType<{ className?: string }>> = {
+  venues: IconBuilding,
+  flowers: IconFlower,
+  "photo-video": IconCamera,
+  catering: IconUtensils,
+  music: IconMusic,
+  other: IconSparkle,
+};
 
 export default function WishlistPage() {
   const { data, addVendor } = useAppData();
@@ -49,11 +70,12 @@ export default function WishlistPage() {
             className="bg-surface border border-border rounded-xl p-4 text-left"
           >
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xl" aria-hidden>
-                {cat.icon}
-              </span>
+              {(() => {
+                const CatIcon = CATEGORY_ICONS[cat.id] ?? IconSparkle;
+                return <CatIcon className="w-5 h-5" />;
+              })()}
               {cat.locked ? (
-                <span aria-hidden>🔒</span>
+                <IconLock className="w-4 h-4 text-muted" />
               ) : (
                 cat.vendorIds.length > 0 && (
                   <span className="text-xs bg-border rounded-full px-1.5 py-0.5">{cat.vendorIds.length}</span>
@@ -69,7 +91,9 @@ export default function WishlistPage() {
         onClick={() => setShowProModal(true)}
         className="w-full mt-6 border border-foreground/20 bg-surface rounded-xl p-4 text-left"
       >
-        <p className="text-sm font-medium">✨ Upgrade to Pro</p>
+        <p className="text-sm font-medium flex items-center gap-1.5">
+          <IconSparkle className="w-4 h-4" /> Upgrade to Pro
+        </p>
         <p className="text-xs text-muted mt-0.5">Unlimited categories &amp; AI vendor reviews</p>
       </button>
 
@@ -154,11 +178,12 @@ function CategoryModal({
   vendors: { id: string; name: string; url: string }[];
   onClose: () => void;
 }) {
+  const CatIcon = CATEGORY_ICONS[category.id] ?? IconSparkle;
   return (
     <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50" onClick={onClose}>
       <div className="bg-background w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl p-5 max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <p className="text-lg font-medium mb-4">
-          {category.icon} {category.name}
+        <p className="text-lg font-medium mb-4 flex items-center gap-2">
+          <CatIcon className="w-5 h-5" /> {category.name}
         </p>
         {vendors.length === 0 ? (
           <p className="text-sm text-muted">No vendors saved here yet — paste a link on the Wishlist tab.</p>
@@ -186,9 +211,9 @@ function ProModal({ onClose }: { onClose: () => void }) {
       <div className="bg-background w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl p-6" onClick={(e) => e.stopPropagation()}>
         <p className="text-lg font-medium mb-4">Upgrade to Pro</p>
         <ul className="space-y-3 mb-5 text-sm">
-          <li className="flex gap-2">🚩 <span>Red/green flag AI vendor reviews</span></li>
-          <li className="flex gap-2">📁 <span>Unlimited wishlist categories</span></li>
-          <li className="flex gap-2">💬 <span>Priority support</span></li>
+          <li className="flex gap-2 items-center"><IconFlag className="w-4 h-4 shrink-0" /> <span>Red/green flag AI vendor reviews</span></li>
+          <li className="flex gap-2 items-center"><IconFolder className="w-4 h-4 shrink-0" /> <span>Unlimited wishlist categories</span></li>
+          <li className="flex gap-2 items-center"><IconChat className="w-4 h-4 shrink-0" /> <span>Priority support</span></li>
         </ul>
         <p className="text-xs text-muted mb-4">Coming soon — the Pro tier is planned for after the core app ships.</p>
         <button disabled className="w-full bg-foreground text-background rounded-lg py-2.5 text-sm font-medium opacity-40">

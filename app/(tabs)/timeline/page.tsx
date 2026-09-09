@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useAppData, sortedTimelineEvents } from "@/lib/store";
 import { SUGGESTED_TIMELINE } from "@/lib/suggestedTimeline";
 import type { TimelineEvent } from "@/lib/types";
+import { IconClock } from "@/lib/icons";
 
 function formatTime(time: string): string {
   const [h, m] = time.split(":").map(Number);
@@ -26,7 +27,7 @@ export default function TimelinePage() {
 
       {events.length === 0 ? (
         <div className="bg-surface border border-border rounded-xl p-6 text-center">
-          <p className="text-2xl mb-2">🕐</p>
+          <IconClock className="w-7 h-7 mx-auto mb-2 text-muted" />
           <p className="text-sm font-medium mb-1">No run-sheet yet</p>
           <p className="text-xs text-muted mb-5">
             Start from a suggested schedule and adjust the times, or build your own from scratch.

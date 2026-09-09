@@ -12,6 +12,7 @@ import {
   upNextTasks,
 } from "@/lib/store";
 import StatCard from "@/components/StatCard";
+import { IconCheckCircle, IconWallet, IconUsers, IconHeart } from "@/lib/icons";
 
 export default function OverviewPage() {
   const { data, toggleTask } = useAppData();
@@ -62,7 +63,7 @@ export default function OverviewPage() {
       <section className="grid grid-cols-2 gap-3 mb-6">
         <StatCard
           href="/checklist"
-          icon="✅"
+          icon={<IconCheckCircle className="w-5 h-5" />}
           title="Checklist"
           primary={`${checklist.completed}/${checklist.total}`}
           secondary="tasks done"
@@ -70,7 +71,7 @@ export default function OverviewPage() {
         />
         <StatCard
           href="/budget"
-          icon="💰"
+          icon={<IconWallet className="w-5 h-5" />}
           title="Budget"
           primary={budget.total > 0 ? `${Math.round(budgetPct * 100)}%` : "—"}
           secondary={budget.total > 0 ? `$${budget.spent.toLocaleString()} of $${budget.total.toLocaleString()}` : "Set a budget"}
@@ -78,7 +79,7 @@ export default function OverviewPage() {
         />
         <StatCard
           href="/guests"
-          icon="👥"
+          icon={<IconUsers className="w-5 h-5" />}
           title="Guests"
           primary={`${guests.confirmed}/${guests.invited || 0}`}
           secondary="confirmed"
@@ -86,7 +87,7 @@ export default function OverviewPage() {
         />
         <StatCard
           href="/wishlist"
-          icon="💌"
+          icon={<IconHeart className="w-5 h-5" />}
           title="Wishlist"
           primary={`${wishlist.vendorCount}`}
           secondary={`${wishlist.vendorCount === 1 ? "vendor" : "vendors"} · ${wishlist.categoriesUsed} ${
@@ -106,7 +107,7 @@ export default function OverviewPage() {
         {nextTasks.length === 0 ? (
           <div className="bg-surface border border-border rounded-xl p-5 text-center">
             <p className="text-sm text-muted">
-              {checklist.total === 0 ? "No checklist yet — head to the Checklist tab to get started." : "You're all caught up 🎉"}
+              {checklist.total === 0 ? "No checklist yet — head to the Checklist tab to get started." : "You're all caught up"}
             </p>
           </div>
         ) : (

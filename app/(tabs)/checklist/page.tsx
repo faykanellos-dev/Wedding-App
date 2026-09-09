@@ -3,6 +3,7 @@
 import { useAppData } from "@/lib/store";
 import { SUGGESTED_MILESTONES } from "@/lib/types";
 import { SUGGESTED_CHECKLIST } from "@/lib/suggestedChecklist";
+import { IconClipboard } from "@/lib/icons";
 import { useState } from "react";
 
 export default function ChecklistPage() {
@@ -31,7 +32,7 @@ export default function ChecklistPage() {
 
       {data.tasks.length === 0 ? (
         <div className="bg-surface border border-border rounded-xl p-6 text-center">
-          <p className="text-2xl mb-2">📋</p>
+          <IconClipboard className="w-7 h-7 mx-auto mb-2 text-muted" />
           <p className="text-sm font-medium mb-1">Nothing on your list yet</p>
           <p className="text-xs text-muted mb-5">Start from our suggested checklist, or add your own tasks.</p>
           <div className="flex flex-col gap-2">

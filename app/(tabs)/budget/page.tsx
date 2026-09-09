@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useAppData, budgetStats } from "@/lib/store";
 import { CATEGORY_OPTIONS } from "@/lib/types";
 import type { BudgetLine } from "@/lib/types";
+import { IconWallet } from "@/lib/icons";
 
 export default function BudgetPage() {
   const { data, upsertBudgetLine } = useAppData();
@@ -24,7 +25,7 @@ export default function BudgetPage() {
 
       {data.budgetLines.length === 0 ? (
         <div className="bg-surface border border-border rounded-xl p-6 text-center">
-          <p className="text-2xl mb-2">💰</p>
+          <IconWallet className="w-7 h-7 mx-auto mb-2 text-muted" />
           <p className="text-sm font-medium mb-1">No spending tracked yet</p>
           <button
             onClick={() => setEditing("new")}

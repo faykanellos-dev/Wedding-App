@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ReactNode } from "react";
 
 export default function StatCard({
   href,
@@ -11,7 +12,7 @@ export default function StatCard({
   progress,
 }: {
   href: string;
-  icon: string;
+  icon: ReactNode;
   title: string;
   primary: string;
   secondary?: string;
@@ -24,9 +25,7 @@ export default function StatCard({
       className="block bg-surface border border-border rounded-xl p-4 hover:border-foreground/30 transition-colors"
     >
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xl" aria-hidden>
-          {icon}
-        </span>
+        <span aria-hidden>{icon}</span>
         <span className="text-muted text-sm">›</span>
       </div>
       <p className="text-xs text-muted mb-1">{title}</p>
