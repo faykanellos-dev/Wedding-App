@@ -87,10 +87,12 @@ export const CATEGORY_OPTIONS = [
 ] as const;
 
 export const SUGGESTED_MILESTONES = [
-  "12 months to go",
-  "9 months to go",
-  "6 months to go",
-  "3 months to go",
-  "1 month to go",
-  "Week of",
+  "12–18 Months Before",
+  "9–12 Months Before",
+  "6–9 Months Before",
+  "4–6 Months Before",
+  "2–3 Months Before",
+  "Final Month",
+  "Final Week",
+  "Wedding Day",
 ] as const;
