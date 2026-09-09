@@ -53,6 +53,13 @@ export type Onboarding = {
   guestCountEstimate: number | null;
 };
 
+export type TimelineEvent = {
+  id: string;
+  time: string; // "HH:MM", 24-hour, sorted on
+  title: string;
+  notes: string;
+};
+
 export type AppData = {
   unlocked: boolean;
   onboarded: boolean;
@@ -63,6 +70,7 @@ export type AppData = {
   tables: Table[];
   wishlistCategories: WishlistCategory[];
   vendors: Vendor[];
+  timelineEvents: TimelineEvent[];
 };
 
 export const CATEGORY_OPTIONS = [

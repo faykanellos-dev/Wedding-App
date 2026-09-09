@@ -7,6 +7,7 @@ import {
   Guest,
   Table,
   Task,
+  TimelineEvent,
   Vendor,
   WishlistCategory,
   SUGGESTED_MILESTONES,
@@ -31,6 +32,7 @@ const DEFAULT_DATA: AppData = {
     { id: "other", name: "Other", icon: "✨", locked: true, vendorIds: [] },
   ],
   vendors: [],
+  timelineEvents: [],
 };
 
 // --- External store: syncs `data` with localStorage via useSyncExternalStore,
@@ -112,6 +114,9 @@ type AppDataContextValue = {
   addTable: (table: Omit<Table, "id">) => void;
   seatGuest: (guestId: string, tableId: string) => void;
   addVendor: (vendor: Omit<Vendor, "id">) => void;
+  upsertTimelineEvent: (event: TimelineEvent) => void;
+  bulkAddTimelineEvents: (events: Omit<TimelineEvent, "id">[]) => void;
+  deleteTimelineEvent: (id: string) => void;
 };
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -202,6 +207,32 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const upsertTimelineEvent = useCallback((event: TimelineEvent) => {
+    mutate((d) => {
+      const exists = d.timelineEvents.some((e) => e.id === event.id);
+      return {
+        ...d,
+        timelineEvents: exists
+          ? d.timelineEvents.map((e) => (e.id === event.id ? event : e))
+          : [...d.timelineEvents, { ...event, id: event.id || makeId("timeline") }],
+      };
+    });
+  }, []);
+
+  const bulkAddTimelineEvents = useCallback((events: Omit<TimelineEvent, "id">[]) => {
+    mutate((d) => ({
+      ...d,
+      timelineEvents: [
+        ...d.timelineEvents,
+        ...events.map((e) => ({ ...e, id: makeId("timeline") })),
+      ],
+    }));
+  }, []);
+
+  const deleteTimelineEvent = useCallback((id: string) => {
+    mutate((d) => ({ ...d, timelineEvents: d.timelineEvents.filter((e) => e.id !== id) }));
+  }, []);
+
   const value = useMemo(
     () => ({
       data,
@@ -216,6 +247,9 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       addTable,
       seatGuest,
       addVendor,
+      upsertTimelineEvent,
+      bulkAddTimelineEvents,
+      deleteTimelineEvent,
     }),
     [
       data,
@@ -230,6 +264,9 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       addTable,
       seatGuest,
       addVendor,
+      upsertTimelineEvent,
+      bulkAddTimelineEvents,
+      deleteTimelineEvent,
     ]
   );
 
@@ -275,6 +312,10 @@ export function wishlistStats(categories: WishlistCategory[]) {
   const vendorCount = categories.reduce((sum, c) => sum + c.vendorIds.length, 0);
   const categoriesUsed = categories.filter((c) => c.vendorIds.length > 0).length;
   return { vendorCount, categoriesUsed };
+}
+
+export function sortedTimelineEvents(events: TimelineEvent[]): TimelineEvent[] {
+  return [...events].sort((a, b) => a.time.localeCompare(b.time));
 }
 
 const MILESTONE_URGENCY = [...SUGGESTED_MILESTONES].reverse(); // "Week of" is most urgent
