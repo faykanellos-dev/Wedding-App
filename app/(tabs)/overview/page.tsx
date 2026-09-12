@@ -12,6 +12,7 @@ import {
   upNextTasks,
 } from "@/lib/store";
 import StatCard from "@/components/StatCard";
+import ProUnlock from "@/components/ProUnlock";
 import { IconCheckCircle, IconWallet, IconUsers, IconHeart, IconSparkle } from "@/lib/icons";
 
 export default function OverviewPage() {
@@ -97,25 +98,40 @@ export default function OverviewPage() {
       </section>
 
       <section className="mb-6">
-        <div className="bg-surface border border-border rounded-2xl p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <IconSparkle className="w-5 h-5" />
-            <p className="text-sm font-medium">Upgrade to Pro</p>
+        {data.proUnlocked ? (
+          <div className="bg-surface border border-border rounded-2xl p-5">
+            <div className="flex items-center gap-2">
+              <IconSparkle className="w-5 h-5" />
+              <p className="text-sm font-medium">Pro unlocked</p>
+            </div>
+            <p className="text-xs text-muted mt-1">
+              Unlimited wishlist categories and AI red/green flag vendor reviews are active.
+            </p>
           </div>
-          <ul className="space-y-1.5 mb-4 text-sm text-muted">
-            <li>Red/green flag vendor reviews</li>
-            <li>Unlimited wishlist categories</li>
-            <li>Priority support</li>
-          </ul>
-          <a
-            href="https://theweddingcheatsheet.com/store/p/wedding-cheat-sheet-pro"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block w-full text-center bg-foreground text-background rounded-lg py-3 font-medium"
-          >
-            Upgrade to Pro
-          </a>
-        </div>
+        ) : (
+          <div className="bg-surface border border-border rounded-2xl p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <IconSparkle className="w-5 h-5" />
+              <p className="text-sm font-medium">Upgrade to Pro</p>
+            </div>
+            <ul className="space-y-1.5 mb-4 text-sm text-muted">
+              <li>Red/green flag vendor reviews</li>
+              <li>Unlimited wishlist categories</li>
+              <li>Priority support</li>
+            </ul>
+            <a
+              href="https://theweddingcheatsheet.com/store/p/wedding-cheat-sheet-pro"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full text-center bg-foreground text-background rounded-lg py-3 font-medium mb-3"
+            >
+              Upgrade to Pro
+            </a>
+            <div className="text-center">
+              <ProUnlock />
+            </div>
+          </div>
+        )}
       </section>
 
       <section>
