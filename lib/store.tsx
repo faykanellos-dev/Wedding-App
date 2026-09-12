@@ -16,7 +16,7 @@ import {
 const STORAGE_KEY = "wedding-planner:data";
 
 const DEFAULT_DATA: AppData = {
-  unlocked: false,
+  unlocked: true,
   onboarded: false,
   onboarding: { weddingDate: null, totalBudget: null, guestCountEstimate: null },
   tasks: [],
