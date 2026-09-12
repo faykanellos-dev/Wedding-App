@@ -18,6 +18,7 @@ export default function OverviewPage() {
   const { data, toggleTask } = useAppData();
   const [today, setToday] = useState(() => new Date());
 
+  // Recalculate the countdown at each new day without requiring a refresh.
   useEffect(() => {
     const msUntilMidnight =
       new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime() - Date.now();
@@ -107,7 +108,9 @@ export default function OverviewPage() {
             <li>Priority support</li>
           </ul>
           <a
-            href="mailto:hello@theweddingcheatsheet.com?subject=Upgrade%20to%20Pro"
+            href="https://theweddingcheatsheet.com/store/p/wedding-cheat-sheet-pro"
+            target="_blank"
+            rel="noopener noreferrer"
             className="block w-full text-center bg-foreground text-background rounded-lg py-3 font-medium"
           >
             Upgrade to Pro
