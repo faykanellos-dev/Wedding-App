@@ -12,13 +12,12 @@ import {
   upNextTasks,
 } from "@/lib/store";
 import StatCard from "@/components/StatCard";
-import { IconCheckCircle, IconWallet, IconUsers, IconHeart } from "@/lib/icons";
+import { IconCheckCircle, IconWallet, IconUsers, IconHeart, IconSparkle } from "@/lib/icons";
 
 export default function OverviewPage() {
   const { data, toggleTask } = useAppData();
   const [today, setToday] = useState(() => new Date());
 
-  // Recalculate the countdown at each new day without requiring a refresh.
   useEffect(() => {
     const msUntilMidnight =
       new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).getTime() - Date.now();
@@ -94,6 +93,26 @@ export default function OverviewPage() {
             wishlist.categoriesUsed === 1 ? "category" : "categories"
           }`}
         />
+      </section>
+
+      <section className="mb-6">
+        <div className="bg-surface border border-border rounded-2xl p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <IconSparkle className="w-5 h-5" />
+            <p className="text-sm font-medium">Upgrade to Pro</p>
+          </div>
+          <ul className="space-y-1.5 mb-4 text-sm text-muted">
+            <li>Red/green flag vendor reviews</li>
+            <li>Unlimited wishlist categories</li>
+            <li>Priority support</li>
+          </ul>
+          <a
+            href="mailto:hello@theweddingcheatsheet.com?subject=Upgrade%20to%20Pro"
+            className="block w-full text-center bg-foreground text-background rounded-lg py-3 font-medium"
+          >
+            Upgrade to Pro
+          </a>
+        </div>
       </section>
 
       <section>
