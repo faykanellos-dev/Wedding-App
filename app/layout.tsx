@@ -9,8 +9,8 @@ import { AppDataProvider } from "@/lib/store";
 // once deployed somewhere with normal internet access — see globals.css.
 
 export const metadata: Metadata = {
-  title: "Wedding Planner by Fay K",
-  description: "Your wedding planning companion — checklist, budget, guests, and vendors in one place.",
+  title: "The Wedding Cheat Sheet",
+  description: "Everything you need to plan your wedding, all in one place.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
