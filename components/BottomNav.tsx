@@ -9,8 +9,8 @@ const TABS = [
   { href: "/checklist", label: "Checklist", Icon: IconCheckCircle },
   { href: "/budget", label: "Budget", Icon: IconWallet },
   { href: "/guests", label: "Guests", Icon: IconUsers },
-  { href: "/wishlist", label: "Wishlist", Icon: IconHeart },
   { href: "/timeline", label: "Timeline", Icon: IconClock },
+  { href: "/wishlist", label: "Wishlist", Icon: IconHeart },
 ] as const;
 
 export default function BottomNav() {
