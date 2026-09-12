@@ -9,15 +9,18 @@ import {
   Task,
   TimelineEvent,
   Vendor,
+  VendorReview,
   WishlistCategory,
   SUGGESTED_MILESTONES,
 } from "./types";
+import { isValidProCode } from "./proCode";
 
 const STORAGE_KEY = "wedding-planner:data";
 
 const DEFAULT_DATA: AppData = {
   unlocked: true,
   onboarded: false,
+  proUnlocked: false,
   onboarding: { weddingDate: null, totalBudget: null, guestCountEstimate: null },
   tasks: [],
   budgetLines: [],
@@ -117,9 +120,11 @@ type AppDataContextValue = {
   addTable: (table: Omit<Table, "id">) => void;
   seatGuest: (guestId: string, tableId: string) => void;
   addVendor: (vendor: Omit<Vendor, "id">) => void;
+  updateVendorReview: (vendorId: string, review: VendorReview | null) => void;
   upsertTimelineEvent: (event: TimelineEvent) => void;
   bulkAddTimelineEvents: (events: Omit<TimelineEvent, "id">[]) => void;
   deleteTimelineEvent: (id: string) => void;
+  redeemProCode: (code: string) => boolean;
 };
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -210,6 +215,13 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const updateVendorReview = useCallback((vendorId: string, review: VendorReview | null) => {
+    mutate((d) => ({
+      ...d,
+      vendors: d.vendors.map((v) => (v.id === vendorId ? { ...v, reviewStatus: review } : v)),
+    }));
+  }, []);
+
   const upsertTimelineEvent = useCallback((event: TimelineEvent) => {
     mutate((d) => {
       const exists = d.timelineEvents.some((e) => e.id === event.id);
@@ -236,6 +248,12 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     mutate((d) => ({ ...d, timelineEvents: d.timelineEvents.filter((e) => e.id !== id) }));
   }, []);
 
+  const redeemProCode = useCallback((code: string) => {
+    if (!isValidProCode(code)) return false;
+    mutate((d) => ({ ...d, proUnlocked: true }));
+    return true;
+  }, []);
+
   const value = useMemo(
     () => ({
       data,
@@ -250,9 +268,11 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       addTable,
       seatGuest,
       addVendor,
+      updateVendorReview,
       upsertTimelineEvent,
       bulkAddTimelineEvents,
       deleteTimelineEvent,
+      redeemProCode,
     }),
     [
       data,
@@ -267,9 +287,11 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       addTable,
       seatGuest,
       addVendor,
+      updateVendorReview,
       upsertTimelineEvent,
       bulkAddTimelineEvents,
       deleteTimelineEvent,
+      redeemProCode,
     ]
   );
 
