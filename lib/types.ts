@@ -38,13 +38,33 @@ export type WishlistCategory = {
   vendorIds: string[];
 };
 
+// One item in a vendor's AI review (app-spec.md §9).
+export type VendorReviewItem = {
+  type: "flag" | "green";
+  observation: string;
+  // Only present on "flag" items — a concrete question to ask the vendor.
+  question?: string;
+};
+
+// Result of an AI vendor review — either "flagged" (allClear: false) or
+// "all-clear" (allClear: true), matching the two result states in §9.
+export type VendorReview = {
+  allClear: boolean;
+  headline: string;
+  // Shown on the all-clear result, e.g. "Still worth a call before you book".
+  caveat?: string;
+  items: VendorReviewItem[];
+  reviewedAt: string; // ISO timestamp
+};
+
 export type Vendor = {
   id: string;
   categoryId: string;
   name: string;
   url: string;
   notes: string;
-  reviewStatus: null; // Pro-only, out of scope for v1
+  // Pro-only — null until a review has been run (or re-run) for this vendor.
+  reviewStatus: VendorReview | null;
 };
 
 export type Onboarding = {
@@ -63,6 +83,9 @@ export type TimelineEvent = {
 export type AppData = {
   unlocked: boolean;
   onboarded: boolean;
+  // Pro tier (app-spec.md §8) — no payment processor is wired up yet, so this
+  // is flipped on client-side by the "Upgrade to Pro" button as a stand-in.
+  isPro: boolean;
   onboarding: Onboarding;
   tasks: Task[];
   budgetLines: BudgetLine[];

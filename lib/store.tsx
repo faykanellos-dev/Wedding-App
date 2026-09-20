@@ -16,8 +16,9 @@ import {
 const STORAGE_KEY = "wedding-planner:data";
 
 const DEFAULT_DATA: AppData = {
-  unlocked: false,
+  unlocked: true,
   onboarded: false,
+  isPro: false,
   onboarding: { weddingDate: null, totalBudget: null, guestCountEstimate: null },
   tasks: [],
   budgetLines: [],
@@ -117,6 +118,8 @@ type AppDataContextValue = {
   addTable: (table: Omit<Table, "id">) => void;
   seatGuest: (guestId: string, tableId: string) => void;
   addVendor: (vendor: Omit<Vendor, "id">) => void;
+  setVendorReview: (vendorId: string, review: Vendor["reviewStatus"]) => void;
+  setPro: (isPro: boolean) => void;
   upsertTimelineEvent: (event: TimelineEvent) => void;
   bulkAddTimelineEvents: (events: Omit<TimelineEvent, "id">[]) => void;
   deleteTimelineEvent: (id: string) => void;
@@ -210,6 +213,17 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const setVendorReview = useCallback((vendorId: string, review: Vendor["reviewStatus"]) => {
+    mutate((d) => ({
+      ...d,
+      vendors: d.vendors.map((v) => (v.id === vendorId ? { ...v, reviewStatus: review } : v)),
+    }));
+  }, []);
+
+  const setPro = useCallback((isPro: boolean) => {
+    mutate((d) => ({ ...d, isPro }));
+  }, []);
+
   const upsertTimelineEvent = useCallback((event: TimelineEvent) => {
     mutate((d) => {
       const exists = d.timelineEvents.some((e) => e.id === event.id);
@@ -250,6 +264,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       addTable,
       seatGuest,
       addVendor,
+      setVendorReview,
+      setPro,
       upsertTimelineEvent,
       bulkAddTimelineEvents,
       deleteTimelineEvent,
@@ -267,6 +283,8 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       addTable,
       seatGuest,
       addVendor,
+      setVendorReview,
+      setPro,
       upsertTimelineEvent,
       bulkAddTimelineEvents,
       deleteTimelineEvent,
