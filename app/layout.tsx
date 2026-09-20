@@ -10,8 +10,8 @@ import RegisterSW from "@/components/RegisterSW";
 // once deployed somewhere with normal internet access — see globals.css.
 
 export const metadata: Metadata = {
-  title: "Wedding Planner by Fay K",
-  description: "Your wedding planning companion — checklist, budget, guests, and vendors in one place.",
+  title: "The Wedding Cheat Sheet",
+  description: "Everything you need to plan your wedding, all in one place.",
   manifest: "/manifest.json",
   icons: {
     icon: [
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Wedding Planner",
+    title: "The Wedding Cheat Sheet",
   },
 };
 

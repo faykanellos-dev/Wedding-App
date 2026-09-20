@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, ComponentType } from "react";
+import { useState, ComponentType } from "react";
 import { useAppData } from "@/lib/store";
-import { Vendor, VendorReview, WishlistCategory } from "@/lib/types";
+import type { Vendor, VendorReview } from "@/lib/types";
+import ProUnlock from "@/components/ProUnlock";
 import {
   IconLock,
   IconSparkle,
@@ -32,7 +33,6 @@ export default function WishlistPage() {
   const [confirming, setConfirming] = useState<{ url: string } | null>(null);
   const [openCategoryId, setOpenCategoryId] = useState<string | null>(null);
   const [showProModal, setShowProModal] = useState(false);
-  const [reviewingVendor, setReviewingVendor] = useState<Vendor | null>(null);
 
   function handlePasteSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -44,9 +44,6 @@ export default function WishlistPage() {
   }
 
   const openCategory = data.wishlistCategories.find((c) => c.id === openCategoryId);
-  const reviewingCategory = reviewingVendor
-    ? data.wishlistCategories.find((c) => c.id === reviewingVendor.categoryId)
-    : undefined;
 
   return (
     <main className="px-5 pt-8">
@@ -70,7 +67,7 @@ export default function WishlistPage() {
 
       <div className="grid grid-cols-2 gap-3">
         {data.wishlistCategories.map((cat) => {
-          const locked = cat.locked && !data.isPro;
+          const locked = cat.locked && !data.proUnlocked;
           return (
             <button
               key={cat.id}
@@ -96,15 +93,17 @@ export default function WishlistPage() {
         })}
       </div>
 
-      <button
-        onClick={() => setShowProModal(true)}
-        className="w-full mt-6 border border-foreground/20 bg-surface rounded-xl p-4 text-left"
-      >
-        <p className="text-sm font-medium flex items-center gap-1.5">
-          <IconSparkle className="w-4 h-4" /> Upgrade to Pro
-        </p>
-        <p className="text-xs text-muted mt-0.5">Unlimited categories &amp; AI vendor reviews</p>
-      </button>
+      {!data.proUnlocked && (
+        <button
+          onClick={() => setShowProModal(true)}
+          className="w-full mt-6 border border-foreground/20 bg-surface rounded-xl p-4 text-left"
+        >
+          <p className="text-sm font-medium flex items-center gap-1.5">
+            <IconSparkle className="w-4 h-4" /> Upgrade to Pro
+          </p>
+          <p className="text-xs text-muted mt-0.5">Unlimited categories &amp; AI vendor reviews</p>
+        </button>
+      )}
 
       {confirming && (
         <ConfirmVendorModal
@@ -121,22 +120,16 @@ export default function WishlistPage() {
         <CategoryModal
           category={openCategory}
           vendors={data.vendors.filter((v) => v.categoryId === openCategory.id)}
-          isPro={data.isPro}
+          proUnlocked={data.proUnlocked}
           onClose={() => setOpenCategoryId(null)}
-          onOpenReview={(v) => setReviewingVendor(v)}
-          onRequirePro={() => setShowProModal(true)}
+          onRequestPro={() => {
+            setOpenCategoryId(null);
+            setShowProModal(true);
+          }}
         />
       )}
 
-      {reviewingVendor && reviewingCategory && (
-        <VendorReviewModal
-          vendor={reviewingVendor}
-          categoryName={reviewingCategory.name}
-          onClose={() => setReviewingVendor(null)}
-        />
-      )}
-
-      {showProModal && <ProModal onClose={() => setShowProModal(false)} />}
+      {showProModal && <ProModal proUnlocked={data.proUnlocked} onClose={() => setShowProModal(false)} />}
     </main>
   );
 }
@@ -151,7 +144,7 @@ function ConfirmVendorModal({
   onSave: (v: { categoryId: string; name: string; url: string; notes: string; reviewStatus: null }) => void;
 }) {
   const { data } = useAppData();
-  const unlockedCategories = data.wishlistCategories.filter((c) => !c.locked || data.isPro);
+  const unlockedCategories = data.wishlistCategories.filter((c) => !c.locked || data.proUnlocked);
   const [name, setName] = useState("");
   const [categoryId, setCategoryId] = useState(unlockedCategories[0]?.id ?? "");
 
@@ -196,18 +189,17 @@ function ConfirmVendorModal({
 function CategoryModal({
   category,
   vendors,
-  isPro,
+  proUnlocked,
   onClose,
-  onOpenReview,
-  onRequirePro,
+  onRequestPro,
 }: {
-  category: WishlistCategory;
+  category: { id: string; name: string; icon: string };
   vendors: Vendor[];
-  isPro: boolean;
+  proUnlocked: boolean;
   onClose: () => void;
-  onOpenReview: (vendor: Vendor) => void;
-  onRequirePro: () => void;
+  onRequestPro: () => void;
 }) {
+  const { updateVendorReview } = useAppData();
   const CatIcon = CATEGORY_ICONS[category.id] ?? IconSparkle;
   return (
     <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50" onClick={onClose}>
@@ -220,34 +212,14 @@ function CategoryModal({
         ) : (
           <ul className="space-y-2">
             {vendors.map((v) => (
-              <li key={v.id} className="bg-surface border border-border rounded-lg p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">{v.name}</p>
-                    <p className="text-xs text-muted truncate">{v.url}</p>
-                  </div>
-                  {v.reviewStatus && (
-                    <span
-                      className={`shrink-0 inline-flex items-center gap-1 text-xs rounded-full px-2 py-1 ${
-                        v.reviewStatus.allClear ? "bg-border" : "bg-foreground text-background"
-                      }`}
-                    >
-                      {v.reviewStatus.allClear ? (
-                        <IconCheckCircle className="w-3.5 h-3.5" />
-                      ) : (
-                        <IconFlag className="w-3.5 h-3.5" />
-                      )}
-                      {v.reviewStatus.allClear ? "All clear" : "Flagged"}
-                    </span>
-                  )}
-                </div>
-                <button
-                  onClick={() => (isPro ? onOpenReview(v) : onRequirePro())}
-                  className="mt-2 text-xs font-medium underline underline-offset-2"
-                >
-                  {v.reviewStatus ? "View review" : "Run AI review"}
-                </button>
-              </li>
+              <VendorCard
+                key={v.id}
+                vendor={v}
+                categoryName={category.name}
+                proUnlocked={proUnlocked}
+                onReviewed={(review) => updateVendorReview(v.id, review)}
+                onRequestPro={onRequestPro}
+              />
             ))}
           </ul>
         )}
@@ -259,174 +231,141 @@ function CategoryModal({
   );
 }
 
-// Step labels shown while a review is in flight (app-spec.md §9, loading
-// state) — purely cosmetic pacing, since the real API call is one request.
-const LOADING_STEPS = ["Found vendor profile", "Reading reviews and pricing", "Comparing to planning standards"];
-
-function VendorReviewModal({
+function VendorCard({
   vendor,
   categoryName,
-  onClose,
+  proUnlocked,
+  onReviewed,
+  onRequestPro,
 }: {
   vendor: Vendor;
   categoryName: string;
-  onClose: () => void;
+  proUnlocked: boolean;
+  onReviewed: (review: VendorReview) => void;
+  onRequestPro: () => void;
 }) {
-  const { setVendorReview } = useAppData();
-  const [stepIndex, setStepIndex] = useState(0);
-  const [loading, setLoading] = useState(!vendor.reviewStatus);
-  const [result, setResult] = useState<VendorReview | null>(vendor.reviewStatus);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [attempt, setAttempt] = useState(0);
+  const review = vendor.reviewStatus;
 
-  useEffect(() => {
-    if (!loading) return;
-
-    const stepTimer = setInterval(() => {
-      setStepIndex((i) => Math.min(i + 1, LOADING_STEPS.length - 1));
-    }, 900);
-
-    let cancelled = false;
-    fetch("/api/review-vendor", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        name: vendor.name,
-        categoryId: vendor.categoryId,
-        categoryName,
-        url: vendor.url,
-        notes: vendor.notes,
-      }),
-    })
-      .then(async (res) => {
-        const json = await res.json();
-        if (!res.ok) throw new Error(json?.error || "Review failed");
-        return json as VendorReview;
-      })
-      .then((review) => {
-        if (cancelled) return;
-        setVendorReview(vendor.id, review);
-        setResult(review);
-        setLoading(false);
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        setError(err instanceof Error ? err.message : "Something went wrong");
-        setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-      clearInterval(stepTimer);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [attempt, loading]);
-
-  function retry() {
-    setResult(null);
-    setError(null);
-    setStepIndex(0);
+  async function runReview() {
     setLoading(true);
-    setAttempt((a) => a + 1);
+    setError(null);
+    try {
+      const res = await fetch("/api/review-vendor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: vendor.name,
+          url: vendor.url,
+          notes: vendor.notes,
+          category: categoryName,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || "Something went wrong generating the review.");
+      onReviewed({
+        flag: json.flag,
+        headline: json.headline,
+        summary: json.summary,
+        sources: Array.isArray(json.sources) ? json.sources : [],
+        reviewedAt: json.reviewedAt,
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong generating the review.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50" onClick={onClose}>
-      <div
-        className="bg-background w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl p-6 max-h-[85vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {loading && (
-          <>
-            <p className="text-lg font-medium mb-1">Reviewing {vendor.name}</p>
-            <p className="text-xs text-muted mb-5">Checking against your planning standards…</p>
-            <ul className="space-y-3">
-              {LOADING_STEPS.map((step, i) => (
-                <li key={step} className="flex items-center gap-2 text-sm">
-                  {i < stepIndex ? (
-                    <IconCheckCircle className="w-4 h-4 shrink-0" />
-                  ) : i === stepIndex ? (
-                    <IconSparkle className="w-4 h-4 shrink-0 animate-pulse" />
-                  ) : (
-                    <span className="w-4 h-4 rounded-full border border-border inline-block shrink-0" />
-                  )}
-                  <span className={i <= stepIndex ? "" : "text-muted"}>{step}</span>
+    <li className="bg-surface border border-border rounded-lg p-3">
+      <p className="text-sm font-medium">{vendor.name}</p>
+      <p className="text-xs text-muted truncate">{vendor.url}</p>
+
+      {review && (
+        <div
+          className={`mt-2.5 rounded-lg border p-2.5 ${
+            review.flag === "green" ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"
+          }`}
+        >
+          <p
+            className={`text-xs font-medium flex items-center gap-1.5 ${
+              review.flag === "green" ? "text-green-700" : "text-red-700"
+            }`}
+          >
+            <IconFlag className="w-3.5 h-3.5 shrink-0" />
+            {review.flag === "green" ? "Green flag" : "Red flag"} · {review.headline}
+          </p>
+          <p className="text-xs text-muted mt-1">{review.summary}</p>
+          {review.sources.length > 0 && (
+            <ul className="mt-1.5 space-y-0.5">
+              {review.sources.map((s, i) => (
+                <li key={i}>
+                  <a
+                    href={s.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-muted underline underline-offset-2 truncate block"
+                  >
+                    {s.title}
+                  </a>
                 </li>
               ))}
             </ul>
-          </>
-        )}
+          )}
+        </div>
+      )}
 
-        {!loading && error && (
-          <>
-            <p className="text-lg font-medium mb-1">Couldn&apos;t finish this review</p>
-            <p className="text-sm text-muted mb-5">{error}</p>
-            <button onClick={retry} className="w-full bg-foreground text-background rounded-lg py-2.5 text-sm font-medium mb-2">
-              Try again
-            </button>
-            <button onClick={onClose} className="w-full text-sm text-muted py-1">
-              Close
-            </button>
-          </>
-        )}
+      {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
 
-        {!loading && !error && result && (
-          <>
-            <p className="text-lg font-medium mb-1">{result.headline}</p>
-            {result.caveat && <p className="text-xs text-muted mb-4">{result.caveat}</p>}
-            <ul className="space-y-3 my-4">
-              {result.items.map((item, i) => (
-                <li key={i} className="flex gap-2">
-                  {item.type === "flag" ? (
-                    <IconFlag className="w-4 h-4 mt-0.5 shrink-0" />
-                  ) : (
-                    <IconCheckCircle className="w-4 h-4 mt-0.5 shrink-0" />
-                  )}
-                  <div>
-                    <p className="text-sm">{item.observation}</p>
-                    {item.question && <p className="text-xs text-muted mt-0.5">Ask: &ldquo;{item.question}&rdquo;</p>}
-                  </div>
-                </li>
-              ))}
-            </ul>
-            <button onClick={onClose} className="w-full bg-foreground text-background rounded-lg py-2.5 text-sm font-medium">
-              {result.allClear ? "Move to shortlist" : "Ask these questions at your next call"}
-            </button>
-            <button onClick={retry} className="w-full text-xs text-muted py-2 mt-1 underline underline-offset-2">
-              Re-run review
-            </button>
-          </>
-        )}
-      </div>
-    </div>
+      {proUnlocked ? (
+        <button
+          onClick={runReview}
+          disabled={loading}
+          className="mt-2.5 text-xs font-medium border border-border rounded-lg px-3 py-1.5 disabled:opacity-50"
+        >
+          {loading ? "Researching…" : review ? "Re-run AI review" : "Get AI review"}
+        </button>
+      ) : (
+        !review && (
+          <button onClick={onRequestPro} className="mt-2.5 text-xs text-muted underline underline-offset-2">
+            Upgrade to Pro for AI red/green flag reviews
+          </button>
+        )
+      )}
+    </li>
   );
 }
 
-function ProModal({ onClose }: { onClose: () => void }) {
-  const { setPro } = useAppData();
+function ProModal({ proUnlocked, onClose }: { proUnlocked: boolean; onClose: () => void }) {
   return (
     <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50" onClick={onClose}>
       <div className="bg-background w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl p-6" onClick={(e) => e.stopPropagation()}>
-        <p className="text-lg font-medium mb-4">Upgrade to Pro</p>
+        <p className="text-lg font-medium mb-4">{proUnlocked ? "You're on Pro" : "Upgrade to Pro"}</p>
         <ul className="space-y-3 mb-5 text-sm">
           <li className="flex gap-2 items-center"><IconFlag className="w-4 h-4 shrink-0" /> <span>Red/green flag AI vendor reviews</span></li>
           <li className="flex gap-2 items-center"><IconFolder className="w-4 h-4 shrink-0" /> <span>Unlimited wishlist categories</span></li>
           <li className="flex gap-2 items-center"><IconChat className="w-4 h-4 shrink-0" /> <span>Priority support</span></li>
         </ul>
-        <p className="text-xs text-muted mb-4">
-          Payments aren&apos;t wired up yet — this unlocks Pro on this device so you can try the AI reviews.
-        </p>
-        <button
-          onClick={() => {
-            setPro(true);
-            onClose();
-          }}
-          className="w-full bg-foreground text-background rounded-lg py-2.5 text-sm font-medium"
-        >
-          Upgrade to Pro
-        </button>
-        <p className="text-center text-xs text-muted mt-2">Cancel anytime</p>
-        <button onClick={onClose} className="w-full text-sm text-muted py-2 mt-1">
+        {proUnlocked ? (
+          <p className="text-xs text-muted mb-4">All Pro features are unlocked on this device.</p>
+        ) : (
+          <>
+            <a
+              href="https://theweddingcheatsheet.com/store/p/wedding-cheat-sheet-pro"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full text-center bg-foreground text-background rounded-lg py-2.5 text-sm font-medium mb-3"
+            >
+              Upgrade to Pro
+            </a>
+            <div className="text-center mb-1">
+              <ProUnlock />
+            </div>
+          </>
+        )}
+        <button onClick={onClose} className="w-full text-sm text-muted py-2 mt-3">
           Close
         </button>
       </div>

@@ -9,16 +9,18 @@ import {
   Task,
   TimelineEvent,
   Vendor,
+  VendorReview,
   WishlistCategory,
   SUGGESTED_MILESTONES,
 } from "./types";
+import { isValidProCode } from "./proCode";
 
 const STORAGE_KEY = "wedding-planner:data";
 
 const DEFAULT_DATA: AppData = {
   unlocked: true,
   onboarded: false,
-  isPro: false,
+  proUnlocked: false,
   onboarding: { weddingDate: null, totalBudget: null, guestCountEstimate: null },
   tasks: [],
   budgetLines: [],
@@ -118,11 +120,11 @@ type AppDataContextValue = {
   addTable: (table: Omit<Table, "id">) => void;
   seatGuest: (guestId: string, tableId: string) => void;
   addVendor: (vendor: Omit<Vendor, "id">) => void;
-  setVendorReview: (vendorId: string, review: Vendor["reviewStatus"]) => void;
-  setPro: (isPro: boolean) => void;
+  updateVendorReview: (vendorId: string, review: VendorReview | null) => void;
   upsertTimelineEvent: (event: TimelineEvent) => void;
   bulkAddTimelineEvents: (events: Omit<TimelineEvent, "id">[]) => void;
   deleteTimelineEvent: (id: string) => void;
+  redeemProCode: (code: string) => boolean;
 };
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -213,15 +215,11 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const setVendorReview = useCallback((vendorId: string, review: Vendor["reviewStatus"]) => {
+  const updateVendorReview = useCallback((vendorId: string, review: VendorReview | null) => {
     mutate((d) => ({
       ...d,
       vendors: d.vendors.map((v) => (v.id === vendorId ? { ...v, reviewStatus: review } : v)),
     }));
-  }, []);
-
-  const setPro = useCallback((isPro: boolean) => {
-    mutate((d) => ({ ...d, isPro }));
   }, []);
 
   const upsertTimelineEvent = useCallback((event: TimelineEvent) => {
@@ -250,6 +248,12 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     mutate((d) => ({ ...d, timelineEvents: d.timelineEvents.filter((e) => e.id !== id) }));
   }, []);
 
+  const redeemProCode = useCallback((code: string) => {
+    if (!isValidProCode(code)) return false;
+    mutate((d) => ({ ...d, proUnlocked: true }));
+    return true;
+  }, []);
+
   const value = useMemo(
     () => ({
       data,
@@ -264,11 +268,11 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       addTable,
       seatGuest,
       addVendor,
-      setVendorReview,
-      setPro,
+      updateVendorReview,
       upsertTimelineEvent,
       bulkAddTimelineEvents,
       deleteTimelineEvent,
+      redeemProCode,
     }),
     [
       data,
@@ -283,11 +287,11 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       addTable,
       seatGuest,
       addVendor,
-      setVendorReview,
-      setPro,
+      updateVendorReview,
       upsertTimelineEvent,
       bulkAddTimelineEvents,
       deleteTimelineEvent,
+      redeemProCode,
     ]
   );
 

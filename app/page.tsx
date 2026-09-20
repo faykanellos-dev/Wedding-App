@@ -8,7 +8,6 @@ export default function WelcomePage() {
   const router = useRouter();
   const { data, ready } = useAppData();
 
-  // Already been through onboarding on this device — skip straight to the app.
   useEffect(() => {
     if (!ready) return;
     if (data.onboarded) router.replace("/overview");

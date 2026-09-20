@@ -1,156 +1,122 @@
-// AI vendor review — app-spec.md §9 (Pro feature).
-//
-// Takes the vendor details already saved in the Wishlist (name, category,
-// url, notes) and asks Claude to weigh them against lib/vendorStandards.ts,
-// returning a structured red-flag / all-clear result. This does NOT browse
-// the vendor's actual website or pull real reviews — it works purely from
-// what the couple typed in, plus general knowledge of what tends to go
-// wrong with this category of vendor. See README.md for the env var this
-// needs and a note on per-scan cost.
+import Anthropic from "@anthropic-ai/sdk";
 
-import { NextRequest, NextResponse } from "next/server";
-import { standardsForCategory } from "@/lib/vendorStandards";
+// Runs on Vercel's Node.js runtime (not the Edge runtime) since the
+// Anthropic SDK needs Node APIs, and gets extra time since a web-search-
+// backed review can take a while to come back.
+export const runtime = "nodejs";
+export const maxDuration = 60;
 
-// "claude-sonnet-5" is a good default balance of quality vs. cost for this.
-// Since this is a real API call per scan (see app-spec.md §9's build note),
-// you can swap in a cheaper model — e.g. "claude-haiku-4-5-20251001" — here
-// if per-scan cost matters more than review depth.
-const MODEL = "claude-sonnet-5";
+const RUBRIC = `You are helping a professional wedding planner with 30+ years of experience
+screen vendors that her clients are considering. Research the vendor using web search
+(their reputation, reviews, complaints, and any public information you can find —
+Google reviews, Facebook, Instagram, wedding forums, news, etc.) and the notes provided,
+then decide whether this vendor is a GREEN FLAG (safe to proceed, book with confidence)
+or a RED FLAG (proceed with caution or avoid) for a couple planning a wedding.
 
-type ReviewRequestBody = {
-  name?: string;
-  categoryId?: string;
-  categoryName?: string;
-  url?: string;
-  notes?: string;
-};
+Weigh these signals:
+- Pricing transparency (clear pricing vs. vague/quote-only with no detail)
+- Contract & deposit practices (clear written contracts vs. no contract, unusual deposit demands)
+- Communication (responsive and professional vs. slow, evasive, or unprofessional)
+- Reputation (genuine positive reviews and a real portfolio vs. no reviews, mostly negative
+  reviews, complaints about no-shows/cancellations/poor quality, or reviews that look fake)
+- Availability & reliability (a real, operating business vs. signs of overbooking, sudden
+  closures, or scam reports)
 
-type RawReviewItem = {
-  type?: string;
-  observation?: string;
-  question?: string | null;
-};
+Give the vendor the benefit of the doubt on minor or ambiguous signals — only flag red when
+there is a real, concrete concern, not just "no data found." If you can find almost nothing
+about the vendor at all, lean green but say so plainly in the summary.
 
-type RawReview = {
-  allClear?: boolean;
+After researching, respond with ONLY a single JSON object as your entire final message —
+no markdown fences, no text before or after it — in exactly this shape:
+{"flag":"green"|"red","headline":"<8 words or fewer>","summary":"<2-3 plain sentences a bride would read, explaining why>","sources":[{"title":"<source title>","url":"<source url>"}]}
+Include at most 3 of the most relevant sources you actually used. If you found no useful
+sources, use an empty array.`;
+
+type ParsedReview = {
+  flag?: string;
   headline?: string;
-  caveat?: string | null;
-  items?: RawReviewItem[];
+  summary?: string;
+  sources?: { title: string; url: string }[];
 };
 
-export async function POST(req: NextRequest) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json(
-      { error: "AI review isn't configured yet — ANTHROPIC_API_KEY is missing on the server." },
-      { status: 500 }
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    const name = typeof body?.name === "string" ? body.name.trim() : "";
+    const url = typeof body?.url === "string" ? body.url.trim() : "";
+    const notes = typeof body?.notes === "string" ? body.notes.trim() : "";
+    const category = typeof body?.category === "string" ? body.category.trim() : "";
+
+    if (!name) {
+      return Response.json({ error: "Vendor name is required." }, { status: 400 });
+    }
+
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      return Response.json(
+        { error: "AI reviews aren't configured yet — missing ANTHROPIC_API_KEY." },
+        { status: 500 }
+      );
+    }
+
+    const anthropic = new Anthropic({ apiKey });
+
+    const userMessage = [
+      `Vendor name: ${name}`,
+      category ? `Category: ${category}` : null,
+      url ? `Link provided by the user: ${url}` : null,
+      notes ? `Notes from the user: ${notes}` : `Notes from the user: (none provided)`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    const message = await anthropic.messages.create({
+      model: "claude-sonnet-5",
+      max_tokens: 2048,
+      system: RUBRIC,
+      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 4 }],
+      messages: [{ role: "user", content: userMessage }],
+    });
+
+    const textBlocks = message.content.filter(
+      (block): block is Anthropic.TextBlock => block.type === "text"
     );
-  }
+    const finalText = textBlocks.length > 0 ? textBlocks[textBlocks.length - 1].text.trim() : "";
 
-  let body: ReviewRequestBody;
-  try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Malformed request" }, { status: 400 });
-  }
+    const jsonMatch = finalText.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return Response.json(
+        { error: "The AI review didn't come back in a format we could read. Try again." },
+        { status: 502 }
+      );
+    }
 
-  const name = (body.name ?? "").trim();
-  if (!name) {
-    return NextResponse.json({ error: "Vendor name is required" }, { status: 400 });
-  }
-  const categoryId = body.categoryId ?? "other";
-  const categoryName = body.categoryName ?? "Vendor";
-  const url = (body.url ?? "").trim();
-  const notes = (body.notes ?? "").trim();
+    let parsed: ParsedReview;
+    try {
+      parsed = JSON.parse(jsonMatch[0]);
+    } catch {
+      return Response.json(
+        { error: "The AI review didn't come back in a format we could read. Try again." },
+        { status: 502 }
+      );
+    }
 
-  const standards = standardsForCategory(categoryId);
+    if (parsed.flag !== "green" && parsed.flag !== "red") {
+      return Response.json(
+        { error: "The AI review didn't come back in a format we could read. Try again." },
+        { status: 502 }
+      );
+    }
 
-  const prompt = `You are reviewing a wedding vendor on behalf of an experienced wedding planner (30+ years, 200+ weddings), for a bride-to-be using her planning app. You have NOT browsed the internet and have NO real information about this specific vendor beyond what's given below — do not invent facts, reviews, or claims about them.
-
-Vendor being considered:
-- Name: ${name}
-- Category: ${categoryName}
-- Website/link: ${url || "(not provided)"}
-- Notes from the couple: ${notes || "(none)"}
-
-Your job is NOT to fabricate findings about this specific vendor. Instead, based on the category and any notes given, surface the most relevant checks and questions a couple should raise with THIS TYPE of vendor before booking. Use these planning standards as your checklist:
-
-${standards.map((s) => `- ${s}`).join("\n")}
-
-Respond with ONLY valid JSON (no markdown fences, no commentary) matching exactly this shape:
-{
-  "allClear": boolean,
-  "headline": string,
-  "caveat": string | null,
-  "items": [
-    { "type": "flag" | "green", "observation": string, "question": string | null }
-  ]
-}
-
-Rules:
-- If the notes give genuine reason for concern (e.g. mention a bad experience, vague pricing, no contract), set allClear=false, pick 2-3 "flag" items (each a short observation plus a concrete question to ask the vendor) and at least 1 "green" item (something reassuring or neutral, to keep it balanced), and a headline like "2 things to check before booking".
-- If there's nothing in the given information to raise concern, set allClear=true, headline like "Nothing concerning found so far", caveat "Still worth a call before you book to confirm the details below", and exactly 3 "green" items — these double as confirmation questions the couple should still ask this category of vendor.
-- "question" must be null for "green" items and a real, concrete question for "flag" items.
-- Keep each observation and question to one short sentence. Plain, warm, non-alarmist tone — this is guidance, not an accusation.`;
-
-  let aiRes: Response;
-  try {
-    aiRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: 1024,
-        messages: [{ role: "user", content: prompt }],
-      }),
+    return Response.json({
+      flag: parsed.flag,
+      headline: parsed.headline || (parsed.flag === "green" ? "Looks good" : "Proceed with caution"),
+      summary: parsed.summary || "",
+      sources: Array.isArray(parsed.sources) ? parsed.sources.slice(0, 3) : [],
+      reviewedAt: new Date().toISOString(),
     });
   } catch (err) {
-    console.error("review-vendor: network error calling Anthropic", err);
-    return NextResponse.json({ error: "Couldn't reach the AI service — try again in a moment." }, { status: 502 });
+    console.error("review-vendor error:", err);
+    return Response.json({ error: "Something went wrong generating the review. Please try again." }, { status: 500 });
   }
-
-  if (!aiRes.ok) {
-    const text = await aiRes.text().catch(() => "");
-    console.error("review-vendor: Anthropic API error", aiRes.status, text);
-    return NextResponse.json({ error: "The AI review failed — try again in a moment." }, { status: 502 });
-  }
-
-  const aiJson = await aiRes.json();
-  const raw: string = aiJson?.content?.[0]?.text ?? "";
-
-  let parsed: RawReview;
-  try {
-    // The model is instructed to return raw JSON, but strip code fences
-    // defensively in case it wraps the response in ```json anyway.
-    const cleaned = raw
-      .trim()
-      .replace(/^```(json)?/i, "")
-      .replace(/```$/, "")
-      .trim();
-    parsed = JSON.parse(cleaned);
-  } catch (err) {
-    console.error("review-vendor: couldn't parse model output", raw, err);
-    return NextResponse.json({ error: "Got an unexpected response from the AI — try again." }, { status: 502 });
-  }
-
-  if (!parsed || !Array.isArray(parsed.items) || typeof parsed.headline !== "string") {
-    console.error("review-vendor: unexpected shape", parsed);
-    return NextResponse.json({ error: "Got an unexpected response from the AI — try again." }, { status: 502 });
-  }
-
-  return NextResponse.json({
-    allClear: !!parsed.allClear,
-    headline: parsed.headline,
-    caveat: parsed.caveat ?? undefined,
-    items: parsed.items.map((it) => ({
-      type: it.type === "green" ? "green" : "flag",
-      observation: String(it.observation ?? ""),
-      question: it.question ? String(it.question) : undefined,
-    })),
-    reviewedAt: new Date().toISOString(),
-  });
 }
