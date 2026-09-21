@@ -1,4 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { clientIp, getProEntitlement } from "@/lib/proServer";
+import { rateLimit } from "@/lib/rateLimit";
 
 // Runs on Vercel's Node.js runtime (not the Edge runtime) since the
 // Anthropic SDK needs Node APIs, and gets extra time since a web-search-
@@ -40,12 +42,31 @@ type ParsedReview = {
 };
 
 export async function POST(request: Request) {
+  // Pro is enforced HERE, on the server. The client-side lock is only for
+  // show — anyone can call this endpoint directly, so without this check
+  // the feature would be free (and each call costs real Anthropic credits).
+  const entitlement = getProEntitlement(request);
+  if (!entitlement) {
+    return Response.json(
+      { error: "AI vendor reviews are a Pro feature. Upgrade to Pro (or re-enter your Pro code) to use them." },
+      { status: 402 }
+    );
+  }
+
+  // Cost guard: per-IP and per-Pro-code caps (best-effort, per server instance).
+  if (
+    !rateLimit(`review-ip:${clientIp(request)}`, 20, 60 * 60 * 1000) ||
+    !rateLimit(`review-code:${entitlement}`, 300, 24 * 60 * 60 * 1000)
+  ) {
+    return Response.json({ error: "You've hit the review limit for now. Please try again later." }, { status: 429 });
+  }
+
   try {
     const body = await request.json();
-    const name = typeof body?.name === "string" ? body.name.trim() : "";
-    const url = typeof body?.url === "string" ? body.url.trim() : "";
-    const notes = typeof body?.notes === "string" ? body.notes.trim() : "";
-    const category = typeof body?.category === "string" ? body.category.trim() : "";
+    const name = typeof body?.name === "string" ? body.name.trim().slice(0, 200) : "";
+    const url = typeof body?.url === "string" ? body.url.trim().slice(0, 500) : "";
+    const notes = typeof body?.notes === "string" ? body.notes.trim().slice(0, 2000) : "";
+    const category = typeof body?.category === "string" ? body.category.trim().slice(0, 100) : "";
 
     if (!name) {
       return Response.json({ error: "Vendor name is required." }, { status: 400 });

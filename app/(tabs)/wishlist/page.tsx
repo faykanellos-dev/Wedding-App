@@ -15,7 +15,6 @@ import {
   IconCamera,
   IconUtensils,
   IconMusic,
-  IconCheckCircle,
 } from "@/lib/icons";
 
 const CATEGORY_ICONS: Record<string, ComponentType<{ className?: string }>> = {
@@ -244,6 +243,7 @@ function VendorCard({
   onReviewed: (review: VendorReview) => void;
   onRequestPro: () => void;
 }) {
+  const { recheckPro } = useAppData();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const review = vendor.reviewStatus;
@@ -263,6 +263,7 @@ function VendorCard({
         }),
       });
       const json = await res.json();
+      if (res.status === 402) recheckPro(); // server says not Pro (e.g. code revoked) — re-sync the UI
       if (!res.ok) throw new Error(json?.error || "Something went wrong generating the review.");
       onReviewed({
         flag: json.flag,

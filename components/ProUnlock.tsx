@@ -10,17 +10,19 @@ export default function ProUnlock() {
   const { redeemProCode } = useAppData();
   const [open, setOpen] = useState(false);
   const [code, setCode] = useState("");
-  const [status, setStatus] = useState<"idle" | "invalid">("idle");
+  const [status, setStatus] = useState<"idle" | "checking" | "invalid" | "limited" | "error">("idle");
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const ok = redeemProCode(code);
-    if (ok) {
+    setStatus("checking");
+    // The code is checked on the server — nothing about valid codes lives in the app.
+    const result = await redeemProCode(code);
+    if (result === "ok") {
       setCode("");
       setOpen(false);
       setStatus("idle");
     } else {
-      setStatus("invalid");
+      setStatus(result);
     }
   }
 
@@ -47,14 +49,20 @@ export default function ProUnlock() {
         />
         <button
           type="submit"
-          disabled={!code.trim()}
+          disabled={!code.trim() || status === "checking"}
           className="bg-foreground text-background rounded-lg px-4 text-sm font-medium disabled:opacity-40"
         >
-          Unlock
+          {status === "checking" ? "Checking…" : "Unlock"}
         </button>
       </div>
       {status === "invalid" && (
         <p className="text-xs text-red-600">That code doesn&apos;t look right — check your confirmation email.</p>
+      )}
+      {status === "limited" && (
+        <p className="text-xs text-red-600">Too many attempts. Please wait a few minutes and try again.</p>
+      )}
+      {status === "error" && (
+        <p className="text-xs text-red-600">Couldn&apos;t reach the server. Check your connection and try again.</p>
       )}
     </form>
   );

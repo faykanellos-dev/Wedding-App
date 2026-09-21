@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useMemo, useSyncExternalStore } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useSyncExternalStore } from "react";
 import {
   AppData,
   BudgetLine,
@@ -13,7 +13,6 @@ import {
   WishlistCategory,
   SUGGESTED_MILESTONES,
 } from "./types";
-import { isValidProCode } from "./proCode";
 
 const STORAGE_KEY = "wedding-planner:data";
 
@@ -55,7 +54,9 @@ function readFromStorage(): AppData {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_DATA;
-    return { ...DEFAULT_DATA, ...JSON.parse(raw) };
+    // proUnlocked is never trusted from localStorage (anyone can edit it in
+    // devtools) — Pro status comes from the server, see proState below.
+    return { ...DEFAULT_DATA, ...JSON.parse(raw), proUnlocked: false };
   } catch {
     return DEFAULT_DATA;
   }
@@ -93,6 +94,34 @@ function mutate(updater: (d: AppData) => AppData) {
   commit(updater(getSnapshot()));
 }
 
+// --- Pro entitlement: lives on the server (signed HttpOnly cookie, checked by
+// /api/pro/status and by every paid API route). The client only mirrors it
+// here for showing/hiding UI; it is never persisted to localStorage. ---
+let proState = false;
+const proListeners = new Set<Listener>();
+
+function setProState(next: boolean) {
+  if (proState === next) return;
+  proState = next;
+  proListeners.forEach((l) => l());
+}
+
+function subscribePro(listener: Listener) {
+  proListeners.add(listener);
+  return () => proListeners.delete(listener);
+}
+
+async function refreshProState() {
+  try {
+    const res = await fetch("/api/pro/status", { cache: "no-store", credentials: "same-origin" });
+    if (!res.ok) return;
+    const json = await res.json();
+    setProState(json?.pro === true);
+  } catch {
+    // offline / server unreachable — leave the current state as-is
+  }
+}
+
 // Standard useSyncExternalStore "has mounted" trick: returns false on the
 // server and the first client render (matching SSR output), then true once
 // hydration completes — without ever calling setState inside an effect.
@@ -124,7 +153,8 @@ type AppDataContextValue = {
   upsertTimelineEvent: (event: TimelineEvent) => void;
   bulkAddTimelineEvents: (events: Omit<TimelineEvent, "id">[]) => void;
   deleteTimelineEvent: (id: string) => void;
-  redeemProCode: (code: string) => boolean;
+  redeemProCode: (code: string) => Promise<"ok" | "invalid" | "limited" | "error">;
+  recheckPro: () => void;
 };
 
 const AppDataContext = createContext<AppDataContextValue | null>(null);
@@ -136,8 +166,14 @@ function makeId(prefix: string) {
 }
 
 export function AppDataProvider({ children }: { children: React.ReactNode }) {
-  const data = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const stored = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const pro = useSyncExternalStore(subscribePro, () => proState, () => false);
   const ready = useHydrated();
+  const data = useMemo(() => ({ ...stored, proUnlocked: pro }), [stored, pro]);
+
+  useEffect(() => {
+    void refreshProState();
+  }, []);
 
   const setUnlocked = useCallback((unlocked: boolean) => {
     mutate((d) => ({ ...d, unlocked }));
@@ -248,10 +284,28 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
     mutate((d) => ({ ...d, timelineEvents: d.timelineEvents.filter((e) => e.id !== id) }));
   }, []);
 
-  const redeemProCode = useCallback((code: string) => {
-    if (!isValidProCode(code)) return false;
-    mutate((d) => ({ ...d, proUnlocked: true }));
-    return true;
+  const redeemProCode = useCallback(async (code: string) => {
+    try {
+      const res = await fetch("/api/pro/redeem", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ code }),
+      });
+      if (res.ok) {
+        setProState(true);
+        return "ok" as const;
+      }
+      if (res.status === 429) return "limited" as const;
+      if (res.status === 401) return "invalid" as const;
+      return "error" as const;
+    } catch {
+      return "error" as const;
+    }
+  }, []);
+
+  const recheckPro = useCallback(() => {
+    void refreshProState();
   }, []);
 
   const value = useMemo(
@@ -273,6 +327,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       bulkAddTimelineEvents,
       deleteTimelineEvent,
       redeemProCode,
+      recheckPro,
     }),
     [
       data,
@@ -292,6 +347,7 @@ export function AppDataProvider({ children }: { children: React.ReactNode }) {
       bulkAddTimelineEvents,
       deleteTimelineEvent,
       redeemProCode,
+      recheckPro,
     ]
   );
 

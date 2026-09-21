@@ -1,55 +1,88 @@
-# Wedding Planner by Fay K — fresh copy
+# The Wedding Cheat Sheet (web app)
 
-This is a rebuilt copy of the app (the original project's source code couldn't be located — see notes below), matching `app-spec.md` for the redemption code gate, onboarding, and the four core tabs, with a fully built-out **Overview** screen per section 3 of the spec.
+A mobile-first wedding planning app built with Next.js (App Router), React and Tailwind. It started as a rebuild of an earlier version whose source was lost, so **keep this GitHub repo as the source of truth** and commit changes as you go.
+
+> `AGENTS.md` notes that this Next.js version has breaking changes from older releases. Check `node_modules/next/dist/docs/` before changing framework-level code.
 
 ## Running it locally
 
-You'll need [Node.js](https://nodejs.org) installed (any recent version). Then, from this folder:
+You'll need [Node.js](https://nodejs.org) (any recent version). From this folder:
 
 ```
 npm install
 npm run dev
 ```
 
-Open http://localhost:3000 in your browser. Use redemption code **FAYK-4821** (or **FAYK-DEMO**) to get past the gate.
+Open http://localhost:3000. There is no access gate: the welcome screen leads straight into onboarding and the app.
 
-To try the AI vendor review feature locally, also create a `.env.local` file in this folder with:
+To try the **Pro** features locally, create a `.env.local` file (already gitignored) with:
 
 ```
+PRO_CODES=YOUR-TEST-CODE-1
+PRO_TOKEN_SECRET=<a long random string, 32+ characters>
 ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-Get a key from [console.anthropic.com](https://console.anthropic.com) (API Keys). `.env.local` is already gitignored, so the key never gets committed.
+Then tap "Already purchased? Enter your code" on the Overview tab and enter `YOUR-TEST-CODE-1`.
+
+## Environment variables
+
+| Variable | Required for | What it is |
+| --- | --- | --- |
+| `PRO_CODES` | Pro | Comma- or newline-separated list of valid Pro codes (each 8+ characters, case-insensitive). These are the codes buyers receive after paying. |
+| `PRO_TOKEN_SECRET` | Pro | Long random string (32+ characters) used to sign the Pro cookie. Generate one with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`. |
+| `ANTHROPIC_API_KEY` | AI vendor reviews | Key from [console.anthropic.com](https://console.anthropic.com). Each review costs a small amount. |
+
+If `PRO_CODES` or `PRO_TOKEN_SECRET` is missing, **Pro stays locked for everyone**.
+
+## How Pro is protected
+
+Pro is enforced on the server, not in the browser:
+
+1. Valid codes live only in the `PRO_CODES` environment variable. They are not in the repo or in the JavaScript sent to browsers.
+2. Entering a code calls `POST /api/pro/redeem`, which checks it on the server and sets a signed, HttpOnly cookie (`pro_token`). Page scripts can't read or forge it, and editing localStorage or devtools state does nothing.
+3. `POST /api/review-vendor` (the paid feature, and the one that costs Anthropic credits) checks that cookie on every request and returns `402` without it. It is also rate limited and caps input sizes.
+4. `GET /api/pro/status` tells the UI whether to show Pro features. Pro status is never stored in localStorage.
+5. **Revoking a code:** remove it from `PRO_CODES` and redeploy. Every cookie issued from that code stops working.
+
+Limits to be aware of:
+
+- A code is a shared secret. Someone can pass their code to a friend, so **issue a unique code per buyer** (add each to `PRO_CODES`) and revoke any that leak. Fully tying access to payment (one purchase, one account) needs a payment processor or database, e.g. Stripe Checkout plus a KV store.
+- The "unlimited wishlist categories" perk is a UI lock over data stored on the user's own device, so it can't be enforced server-side. The paid feature with real value, AI vendor reviews, is fully server-enforced.
+- The rate limiter is in memory per server instance: it slows abuse but isn't a hard global cap.
 
 ## Deploying to Vercel
 
-1. Push this folder to a GitHub repository (this makes future edits — by you, a developer, or me in a future session — much easier to track).
-2. Import the repo at vercel.com → New Project.
-3. Add the `ANTHROPIC_API_KEY` environment variable in the Vercel project settings (Settings → Environment Variables) so AI vendor reviews work in production.
+1. Push this folder to GitHub (already set up: `faykanellos-dev/Wedding-App`).
+2. Import the repo at vercel.com, then New Project.
+3. Add the three environment variables above in Settings, then Environment Variables (Production).
 4. Deploy.
 
-**Keep the GitHub repo going forward** — that's what went missing with the original app, which is why this had to be rebuilt from the spec rather than edited directly.
+Other things to know:
+
+- The lock file (`package-lock.json`) is out of sync with `package.json` (it doesn't list `@anthropic-ai/sdk`). Vercel's `npm install` copes, but `npm ci` fails until you run `npm install` and commit the updated lock file.
 
 ## What's real vs. placeholder
 
-- **Redemption code paywall**: functional, but checks codes against an in-memory list in `lib/codes.ts` rather than Vercel KV (no KV database is connected in this fresh copy). Swap in a real KV lookup there before relying on it for real purchases — the comment in that file shows where.
-- **Onboarding, Overview, Checklist, Budget, Guest List (incl. tap-to-assign seating), Wishlist, Timeline**: fully functional, storing data in the browser's local storage (per-device, not synced across devices or to a server). Good for demoing and for you to click through; will need a real backend (a database) before this handles real customers' data reliably.
-- **Fonts**: uses system fonts rather than next/font/google, because this build environment couldn't reach Google's font CDN. Fine to leave as-is, or swap in your preferred fonts (Inter + Playfair Display were used previously) once deployed somewhere with normal internet access — see the note at the top of `app/layout.tsx`.
-- **Vendor link auto-parsing** (guessing a vendor's name/category from a pasted URL) and **CSV guest import**: both explicitly out of scope for v1 per the spec — the Wishlist "paste a link" flow asks you to confirm the name/category manually instead.
-- **Day-of timeline**: now built — a sixth tab where you can start from a suggested 20-event run-sheet (8am–11pm) or build your own, and edit/delete any event.
-- **Checklist**: the "Use suggested checklist" starter list has been expanded to 48 tasks across the six milestone buckets (12/9/6/3/1 months out, and week-of), covering budget, vendors, attire, legal paperwork, stationery, and final-week logistics.
-- **Pro tier / AI vendor reviews**: now built (app-spec.md §8–9). Tapping "Upgrade to Pro" flips a client-side `isPro` flag on — there's no real payment processor wired up yet, so this is a stand-in for testing until you decide how Pro is actually sold (a separate purchase, or bundled into the existing redemption code — see the open decision noted in app-spec.md §8). Once Pro is on, each saved vendor gets a "Run AI review" button in its category's vendor list, which calls `app/api/review-vendor/route.ts`. That route sends the vendor's name/category/notes to Claude (Anthropic API) along with the planning-standards checklist in `lib/vendorStandards.ts`, and returns a flagged or all-clear result. **This costs a small amount per review** (an Anthropic API call) — see the model comment in `route.ts` if you want to swap to a cheaper model. It does not scrape the vendor's actual website or pull real reviews; it reasons from what you type in against general red flags for that vendor category. Edit `lib/vendorStandards.ts` any time to change what it checks for — no code changes needed elsewhere.
-- **Partner collaboration, true drag-and-drop seating**: not built, per the spec's "Not in v1" list.
+- **Data storage**: onboarding, checklist, budget, guests (with tap-to-assign seating), wishlist and timeline all work, but data is stored in the browser's localStorage (per device, not synced, lost if the user clears site data). A real backend is needed before this holds customer data reliably.
+- **Pro codes**: checked on the server against `PRO_CODES`, but codes are managed by hand (edit the env var and redeploy). There is no automatic delivery after a Squarespace purchase yet.
+- **Pro upgrade link**: the Overview card links to the Squarespace product page; there is no in-app payment.
+- **AI vendor reviews** (Pro): `app/api/review-vendor/route.ts` sends the vendor's name, category, link and notes to Claude with web search enabled and returns a green or red flag with sources. Edit the rubric at the top of that file, and the model name in the same file, to change behaviour or cost.
+- **PWA**: `public/manifest.json` and `public/sw.js` make the app installable. The service worker deliberately caches nothing.
+- **Fonts**: system fonts (Google Fonts weren't reachable when this was built). Swap in Inter + Playfair Display if you like.
+- **Not built** (per `app-spec.md`): partner collaboration, drag-and-drop seating, vendor link auto-parsing, CSV guest import.
 
 ## Project structure
 
-- `app/page.tsx` — redemption code screen
-- `app/onboarding/page.tsx` — 4-step onboarding
-- `app/(tabs)/overview/page.tsx` — **Overview screen (the requested deliverable)**
-- `app/(tabs)/{checklist,budget,guests,wishlist,timeline}/page.tsx` — the other five tabs
-- `app/api/verify-code/route.ts` — redemption code check
-- `app/api/review-vendor/route.ts` — AI vendor review (Pro feature)
-- `lib/store.tsx` — shared app data (local-storage backed) and the stat calculations Overview uses
-- `lib/types.ts` — data model, mirrored from `app-spec.md`
-- `lib/vendorStandards.ts` — the planning-standards checklist the AI vendor review checks against
-- `lib/suggestedChecklist.ts` / `lib/suggestedTimeline.ts` — starter content for "Use suggested checklist" / "Use suggested run-sheet"
+- `app/page.tsx` welcome screen, `app/onboarding/page.tsx` 4-step onboarding
+- `app/(tabs)/{overview,checklist,budget,guests,timeline,wishlist}/page.tsx` the six tabs
+- `app/api/pro/redeem/route.ts` checks a Pro code and sets the signed cookie
+- `app/api/pro/status/route.ts` reports whether this browser has Pro
+- `app/api/review-vendor/route.ts` AI vendor review (Pro only)
+- `lib/proServer.ts` server-side Pro codes and cookie signing/verification (never import from client code)
+- `lib/rateLimit.ts` small in-memory rate limiter for the API routes
+- `lib/store.tsx` app data (localStorage-backed) plus the client's copy of Pro status
+- `lib/types.ts` data model, mirrored from `app-spec.md`
+- `lib/vendorStandards.ts` planning standards used by the vendor reviewer
+- `lib/suggestedChecklist.ts`, `lib/suggestedTimeline.ts` starter content
+- `components/ProUnlock.tsx` the "enter your Pro code" widget
